@@ -146,7 +146,7 @@ def parse_subs(fp):
 					if amb is None:
 						ambiguous_entries[id] = amb = {
 							'texts'   : [],
-							'comments': [ entry.comment, text ]
+							'comments': [ entry.comment ]
 						}
 
 					amb['comments'].append(text)
@@ -172,7 +172,7 @@ def parse_subs(fp):
 
 					if amb is None:
 						ambiguous_entries[id] = amb = {
-							'texts'    : [ entry.text, text ],
+							'texts'    : [ entry.text ],
 							'comments' : []
 						}
 
@@ -260,7 +260,7 @@ def parse_subs(fp):
 					choice = choose('Choose text to resolve {}'.format(id), 1, len(info['texts']))
 
 					if choice is not None:
-						sub.text = info['texts'][choice - 1]
+						entry.text = info['texts'][choice - 1]
 						info['texts'] = []
 					else:
 						raise Exception('Canceled')
