@@ -15,7 +15,7 @@ ap.add_argument('output_file', type=unicode, help='Output filename. See other op
 
 ap.add_argument('--output-pickle', action='store_true', help="Output subtitle as pickle string, if not then the ouput is a subtitle file that is a properly formatted equivalent")
 ap.add_argument('--input-pickle', action='store_true', help="Read input as a pickle string, if not then input is a subtitle file")
-ap.add_argument('--dry-run', 'r', action='store_true', help='Do not output any file')
+ap.add_argument('--dry-run', '-r', action='store_true', help='Do not output any file')
 
 class subtitle(object):
 	def __init__(self, sub_id, text, line, comment_line):
