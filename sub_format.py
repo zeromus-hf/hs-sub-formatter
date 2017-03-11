@@ -6,6 +6,8 @@ import argparse
 import pickle
 import re
 
+from collections import OrderedDict
+
 ap = argparse.ArgumentParser(description='Parses subtitle files with formatting comments and outputs formatted equivalent.')
 
 ap.add_argument('input_file', type=unicode, help='Input file to process.')
@@ -13,6 +15,7 @@ ap.add_argument('output_file', type=unicode, help='Output filename. See other op
 
 ap.add_argument('--output-pickle', action='store_true', help="Output subtitle as pickle string, if not then the ouput is a subtitle file that is a properly formatted equivalent")
 ap.add_argument('--input-pickle', action='store_true', help="Read input as a pickle string, if not then input is a subtitle file")
+ap.add_argument('--dry-run', 'r', action='store_true', help='Do not output any file')
 
 class subtitle(object):
 	def __init__(self, sub_id, text, line, comment_line):
@@ -50,6 +53,8 @@ def parse_subs(fp):
 
 	last_comment_type = None
 
+	ambiguous_entries = OrderedDict()
+
 	def readline_gen():
 		first_line = fp.readline()
 
@@ -66,12 +71,19 @@ def parse_subs(fp):
 				else:
 					break
 
+	pattern = None
+	entry   = None
+
+	error   = False
+
 	for line_no, line in enumerate(readline_gen(), 1):
 		matches = None
 
 		# Skip blank lines
 		if not line.strip():
 			continue
+
+		last_pattern = pattern
 
 		# Iterate through patterns
 		for pattern in patterns:
@@ -81,9 +93,18 @@ def parse_subs(fp):
 				matches = matches.groups()
 				break
 
-		# Error if no pattern
+		# See if this is just a continuation of the last entry
 		if matches is None:
-			raise Exception('Unknown line {} at line {}'.format(repr(line), line_no))
+			if last_pattern == RE_SUB:
+				entry.text = entry.text.rstrip() + ' ' + line
+				pattern    = last_pattern
+
+			else:
+				# Error if no pattern
+				print u'Unknown line {} at line {}'.format(line, line_no)
+				error = True
+
+			continue
 
 		is_border = pattern in (RE_COMMENT_BORDER_1, RE_COMMENT_BORDER_2)
 
@@ -95,9 +116,6 @@ def parse_subs(fp):
 			is_comment = pattern == RE_COMMENT_SUB
 
 			id, text = matches
-
-			# Save last entry
-			last_entry = entry
 
 			# Try to find an existing entry
 			entry      = sub_entries.get(id)
@@ -112,20 +130,32 @@ def parse_subs(fp):
 
 				# Fill existing comment
 				if entry.comment is None:
-					entry.comment = text
+					entry.comment      = text
 					entry.comment_line = line_no
 
 				# Comment already exists
 				elif entry.comment != text:
 
-					raise Exception(u'existing sub {} with comment "{}" on line {} has overwriting comment "{}" at line {}' \
-							.format(entry, entry.comment, entry.comment_line, text, line_no))
+					# Keep track of duplicates to ask later
+					print u'error: existing sub {} with comment "{}" on line {} has overwriting comment "{}" at line {}' \
+							.format(entry, entry.comment, entry.comment_line, text, line_no)
+
+					amb = ambiguous_entries.get(id)
+
+					if amb is None:
+						ambiguous_entries[id] = amb = {
+							'texts'   : [],
+							'comments': [ entry.comment, text ]
+						}
+
+					amb['comments'].append(text)
 
 				else:
+					# Exact duplicate comments should be okay
 					print u'warning: sub {} with comment "{}" on line {} has duplicate comment at line {}' \
 							.format(entry, entry.comment, entry.comment_line, line_no)
 			else:
-
+				
 				if entry is None:
 					sub_entries[id] = entry = subtitle(id, text, line_no, None)
 					section_ids.append(id)
@@ -133,8 +163,19 @@ def parse_subs(fp):
 				elif entry.text is None:
 					entry.text = text
 					entry.line = line_no
+
 				else:
-					raise Exception(u'sub {} with text "{}" has duplicate entry "{}" at line {}'.format(entry, entry.text, text, line_no))
+					print u'sub {} with text "{}" has duplicate entry "{}" at line {}'.format(entry, entry.text, text, line_no)
+
+					amb = ambiguous_entries.get(id)
+
+					if amb is None:
+						ambiguous_entries[id] = amd = {
+							'texts'    : [ entry.text, text ],
+							'comments' : []
+						}
+
+					amb['texts'].append(text)
 
 		elif pattern in (RE_COMMENT_BORDER_1, RE_COMMENT_BORDER_2): 
 			last_comment_type = pattern
@@ -155,6 +196,76 @@ def parse_subs(fp):
 	if section_ids:
 		sections.append((section_name, tuple(section_ids)))
 		section_ids = []
+
+
+	def choose(question, start, end):
+		choice = raw_input('{} [{}-{}]'.format(question, start, end))
+
+		if not re.match(r'\d+', choice):
+			return None
+
+		choice = int(choice)
+
+		if start <= choice <= end:
+			return choice
+
+		return None
+
+	if error:
+		raise Exception('Please resolve the unknown lines')
+			
+
+	# Ask user to resolve ambiguities
+	if ambiguous_entries:
+		for id, info in ambiguous_entries.iteritems():
+			entry = sub_entries[id]
+
+			while info['texts'] or info['comments']:
+				print u'Ambiguous subs and their comments for:'
+			
+				if entry.comment:
+					print u'\t//#sub "{}" {}'.format(id, entry.comment)
+
+				if entry.text:
+					print u'\t#sub "{}" {}'.format(id, entry.text)
+
+				print
+
+				if info['comments']:
+					print '\tAmbiguous comments:'
+
+					for i, comment in enumerate(info['comments'], 1):
+						print u'\t{}) {}'.format(i, comment)
+
+					print
+
+				if info['texts']:
+					print '\tAmbiguous texts:'
+
+					for i, text in enumerate(info['texts'], 1):
+						print u'\t{}) {}'.format(i, text)
+
+					print
+
+				if info['comments']:
+					choice = choose('Choose comment to resolve {}'.format(id), 1, len(info['comments']))
+
+					if choice is not None:
+						entry.comment = info['comments'][choice - 1]
+						info['comments'] = []
+					else:
+						raise Exception('Canceled')
+				elif info['texts']:
+					choice = choose('Choose text to resolve {}'.format(id), 1, len(info['texts']))
+
+					if choice is not None:
+						sub.text = info['texts'][choice - 1]
+						info['texts'] = []
+					else:
+						raise Exception('Canceled')
+
+				if not info['comments'] and not info['texts']:
+					break
 
 	with_comments = sum(map(lambda x: 1 if x.comment else 0, sub_entries.values()))
 	no_text       = sum(map(lambda x: 1 if x.text is None else 0, sub_entries.values()))
@@ -209,6 +320,9 @@ def format_subs(data, fp):
 def main():
 	args = ap.parse_args()
 
+	if args.dry_run:
+		print 'Dry-run specified.'
+
 	data = None
 
 	try:
@@ -217,7 +331,7 @@ def main():
 				data = pickle.load(fp)
 				fp.close()
 
-		else:
+		elif not args.dry_run:
 
 			with codecs.open(args.input_file, mode='rb', encoding='utf-8') as fp:
 				data = parse_subs(fp)
@@ -226,6 +340,7 @@ def main():
 	except Exception as e:
 		print u'error: {}'.format(e.message)
 		return 1
+		#raise
 
 	if args.output_pickle:
 		with open(args.output_file, 'wb') as fp:
