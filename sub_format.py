@@ -331,7 +331,7 @@ def main():
 				data = pickle.load(fp)
 				fp.close()
 
-		elif not args.dry_run:
+		else:
 
 			with codecs.open(args.input_file, mode='rb', encoding='utf-8') as fp:
 				data = parse_subs(fp)
@@ -342,15 +342,16 @@ def main():
 		return 1
 		#raise
 
-	if args.output_pickle:
-		with open(args.output_file, 'wb') as fp:
-			pickle.dump(fp)
-			fp.close()
-	else:
+	if not args.dry_run:
+		if args.output_pickle:
+			with open(args.output_file, 'wb') as fp:
+				pickle.dump(fp)
+				fp.close()
+		else:
 
-		with codecs.open(args.output_file, mode='wb', encoding='utf-8') as fp:
-			text = format_subs(data, fp)
-			fp.close()
+			with codecs.open(args.output_file, mode='wb', encoding='utf-8') as fp:
+				text = format_subs(data, fp)
+				fp.close()
 
 	return 0
 
