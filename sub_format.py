@@ -16,6 +16,7 @@ ap.add_argument('output_file', type=unicode, help='Output filename. See other op
 ap.add_argument('--output-pickle', action='store_true', help="Output subtitle as pickle string, if not then the ouput is a subtitle file that is a properly formatted equivalent")
 ap.add_argument('--input-pickle', action='store_true', help="Read input as a pickle string, if not then input is a subtitle file")
 ap.add_argument('--dry-run', '-r', action='store_true', help='Do not output any file')
+ap.add_argument('--debug', action='store_true', help='dump trace when erroring')
 
 class subtitle(object):
 	def __init__(self, sub_id, text, line, comment_line):
@@ -170,7 +171,7 @@ def parse_subs(fp):
 					amb = ambiguous_entries.get(id)
 
 					if amb is None:
-						ambiguous_entries[id] = amd = {
+						ambiguous_entries[id] = amb = {
 							'texts'    : [ entry.text, text ],
 							'comments' : []
 						}
@@ -338,9 +339,12 @@ def main():
 				fp.close()
 
 	except Exception as e:
-		print u'error: {}'.format(e.message)
+		print u'error: {}'.format(e)
+
+		if args.debug:
+			raise
+
 		return 1
-		#raise
 
 	if not args.dry_run:
 		if args.output_pickle:
