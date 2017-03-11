@@ -216,12 +216,15 @@ def main():
 			with open(args.input_file, 'rb') as fp:
 				data = pickle.load(fp)
 				fp.close()
+
 		else:
+
 			with codecs.open(args.input_file, mode='rb', encoding='utf-8') as fp:
 				data = parse_subs(fp)
 				fp.close()
+
 	except Exception as e:
-		print u'error:', str(e)
+		print u'error: {}'.format(e.message)
 		return 1
 
 	if args.output_pickle:
