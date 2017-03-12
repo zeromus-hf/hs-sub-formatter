@@ -46,7 +46,7 @@ def parse_subs(fp):
 	RE_SUB               = r'^\s*#sub\s*"([^"]+?)"\s*(.+)\s*$'
 	RE_COMMENT_BORDER_1  = r'^\s*/{3,}\s*$'
 	RE_COMMENT_BORDER_2  = r'^\s*//\s*-+\s*$'
-	RE_COMMENT_OTHER     = r'^//\s*(.+)\s*$'
+	RE_COMMENT_OTHER     = r'^//\s*(.+?)\s*$'
 
 	# Order to check patterns
 	patterns = (RE_COMMENT_SUB, RE_SUB, RE_COMMENT_BORDER_1, RE_COMMENT_BORDER_2, RE_COMMENT_OTHER)
@@ -293,7 +293,13 @@ def parse_subs(fp):
 	for name, ids in sections:
 		subs = data.get(name)
 
-		if data.get(name) is None:
+		if subs is None:
+			orig_name = name
+			name      = header_translations.get(name.lower(), name)
+
+			if orig_name != name:
+				print u'Translated header "{}" -> "{}"'.format(orig_name, name)
+			
 			data[name] = subs = {}
 
 		for id in ids:
@@ -315,12 +321,20 @@ def enum_dict(d, order=None):
 
 original_header_order = dict((name.lower(), i) for i, name in enumerate([
 	'ADV',
-	'H - general purpose',
+	'H - General Purpose',
 	'Caress',
 	'Service',
 	'Insert',
 	'Special'
 ]))
+
+header_translations = dict((name.lower(), trans) for name, trans in {
+	u'\u611b\u64ab'  : 'Caress',
+	u'H\u6c4e\u7528' : 'H - General Purpose',
+	u'\u5949\u4ed5'  : 'Service',
+	u'\u633f\u5165'  : 'Insert',
+	u'\u7279\u6b8a'  : 'Special'
+}.iteritems())
 
 def header_sort(a, b):
 	a_index = original_header_order.get(a.lower(), len(original_header_order))
