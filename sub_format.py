@@ -360,7 +360,7 @@ def format_subs(data, fp):
 			if entry.text:
 				fp.write(u'{}#sub "{}" {}\n'.format('//' if entry.is_comment else '', sub_id, entry.text))
 
-			fp.write('\n')
+			fp.write(u'\n')
 
 def main(args=None, input_fp=None, output_fp=None):
 	if args is not None:
