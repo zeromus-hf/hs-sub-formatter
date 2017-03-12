@@ -25,6 +25,7 @@ class subtitle(object):
 			self.comment = None
 			self.line    = line
 			self.comment_line = comment_line
+			self.is_comment = False
 
 
 	def __str__(self):
@@ -119,7 +120,7 @@ def parse_subs(fp):
 			id, text = matches
 
 			# Try to find an existing entry
-			entry      = sub_entries.get(id)
+			entry = sub_entries.get(id)
 
 			# Fill comment field
 			if is_comment:
@@ -134,22 +135,30 @@ def parse_subs(fp):
 					entry.comment      = text
 					entry.comment_line = line_no
 
+
 				# Comment already exists
 				elif entry.comment != text:
 
-					# Keep track of duplicates to ask later
-					print u'error: existing sub {} with comment "{}" on line {} has overwriting comment "{}" at line {}' \
-							.format(entry, entry.comment, entry.comment_line, text, line_no)
+					# See if entry is not already a comment of the actual translation, if is_comment
+					# is false then we can assume that it is a commented out translation.
+					if not entry.is_comment:
+						entry.text = text
+						entry.line = line_no
+						entry.is_comment = True
+					else:
+						# Keep track of duplicates to ask later
+						print u'error: existing sub {} with comment "{}" on line {} has overwriting comment "{}" at line {}' \
+								.format(entry, entry.comment, entry.comment_line, text, line_no)
 
-					amb = ambiguous_entries.get(id)
+						amb = ambiguous_entries.get(id)
 
-					if amb is None:
-						ambiguous_entries[id] = amb = {
-							'texts'   : [],
-							'comments': [ entry.comment ]
-						}
+						if amb is None:
+							ambiguous_entries[id] = amb = {
+								'texts'   : [],
+								'comments': [ entry.comment ]
+							}
 
-					amb['comments'].append(text)
+						amb['comments'].append(text)
 
 				else:
 					# Exact duplicate comments should be okay
@@ -313,7 +322,7 @@ def format_subs(data, fp):
 				fp.write(u'//#sub "{}" {}\n'.format(sub_id, entry.comment))
 
 			if entry.text:
-				fp.write(u'#sub "{}" {}\n'.format(sub_id, entry.text))
+				fp.write(u'{}#sub "{}" {}\n'.format('//' if entry.is_comment else '', sub_id, entry.text))
 
 			fp.write('\n')
 
