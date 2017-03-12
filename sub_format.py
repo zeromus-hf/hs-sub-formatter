@@ -5,6 +5,7 @@ import codecs
 import argparse
 import pickle
 import re
+import sys
 
 from collections import OrderedDict
 
@@ -361,9 +362,11 @@ def format_subs(data, fp):
 
 			fp.write('\n')
 
-
-def main():
-	args = ap.parse_args()
+def main(args=None, input_fp=None, output_fp=None):
+	if args is not None:
+		args = ap.parse_args(args)
+	else:
+		args = ap.parse_args()
 
 	if args.dry_run:
 		print 'Dry-run specified.'
@@ -378,7 +381,7 @@ def main():
 
 		else:
 
-			with codecs.open(args.input_file, mode='rb', encoding='utf-8') as fp:
+			with codecs.open(args.input_file, mode='rb', encoding='utf-8') if input_fp is None else input_fp as fp:
 				data = parse_subs(fp)
 				fp.close()
 
@@ -389,7 +392,7 @@ def main():
 					fp.close()
 			else:
 
-				with codecs.open(args.output_file, mode='wb', encoding='utf-8') as fp:
+				with codecs.open(args.output_file, mode='wb', encoding='utf-8') if output_fp is None else output_fp as fp:
 					text = format_subs(data, fp)
 					fp.close()
 
