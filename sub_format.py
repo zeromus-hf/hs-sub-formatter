@@ -17,6 +17,7 @@ ap.add_argument('--output-pickle', action='store_true', help="Output subtitle as
 ap.add_argument('--input-pickle', action='store_true', help="Read input as a pickle string, if not then input is a subtitle file")
 ap.add_argument('--dry-run', '-r', action='store_true', help='Do not output any file')
 ap.add_argument('--debug', action='store_true', help='dump trace when erroring')
+ap.add_argument('--print-headers', action='store_true', help='print out headers')
 
 class subtitle(object):
 	def __init__(self, sub_id, text, line, comment_line):
@@ -301,17 +302,37 @@ def parse_subs(fp):
 	return data
 
 
+def enum_dict(d, order=None):
+	keys = d.keys()
+
+	if order is None:
+		keys.sort()
+	else:
+		keys.sort(order)
+
+	for key in keys:
+		yield key, d[key]
+
+original_header_order = dict((name.lower(), i) for i, name in enumerate([
+	'ADV',
+	'H - general purpose',
+	'Caress',
+	'Service',
+	'Insert',
+	'Special'
+]))
+
+def header_sort(a, b):
+	a_index = original_header_order.get(a.lower(), len(original_header_order))
+	b_index = original_header_order.get(b.lower(), len(original_header_order))
+
+	if a_index == b_index:
+		return -1 if a < b else (0 if a == b else 1)
+
+	return a_index - b_index
 
 def format_subs(data, fp):
-	def enum_dict(d):
-		keys = d.keys()
-
-		keys.sort()
-
-		for key in keys:
-			yield key, d[key]
-
-	for section, entries in enum_dict(data):
+	for section, entries in enum_dict(data, header_sort):
 		if section:
 			fp.write(u'// -----------------------------------------------\n')
 			fp.write(u'// {}\n'.format(section))
@@ -347,6 +368,23 @@ def main():
 				data = parse_subs(fp)
 				fp.close()
 
+		if not args.dry_run:
+			if args.output_pickle:
+				with open(args.output_file, 'wb') as fp:
+					pickle.dump(fp)
+					fp.close()
+			else:
+
+				with codecs.open(args.output_file, mode='wb', encoding='utf-8') as fp:
+					text = format_subs(data, fp)
+					fp.close()
+
+		if args.print_headers:
+			print 'Headers (re-ordered):'
+
+			for i, (section, entries) in enumerate(enum_dict(data, header_sort), 1):
+				print u'{}) {}'.format(i, section)
+
 	except Exception as e:
 		print u'error: {}'.format(e)
 
@@ -354,17 +392,6 @@ def main():
 			raise
 
 		return 1
-
-	if not args.dry_run:
-		if args.output_pickle:
-			with open(args.output_file, 'wb') as fp:
-				pickle.dump(fp)
-				fp.close()
-		else:
-
-			with codecs.open(args.output_file, mode='wb', encoding='utf-8') as fp:
-				text = format_subs(data, fp)
-				fp.close()
 
 	return 0
 
