@@ -19,6 +19,7 @@ ap.add_argument('--input-pickle', action='store_true', help="Read input as a pic
 ap.add_argument('--dry-run', '-r', action='store_true', help='Do not output any file')
 ap.add_argument('--debug', action='store_true', help='dump trace when erroring')
 ap.add_argument('--print-headers', action='store_true', help='print out headers')
+ap.add_argument('--no-resolve', action='store_true', help='Skip resolving ambiguities')
 
 class subtitle(object):
 	def __init__(self, sub_id, text, line, comment_line):
@@ -33,7 +34,7 @@ class subtitle(object):
 	def __str__(self):
 		return '{} (line {})'.format(self.sub_id, self.line)
 
-def parse_subs(fp):
+def parse_subs(fp, interactive):
 	# Store all our subtitle entries here
 	sub_entries = {}
 
@@ -229,6 +230,9 @@ def parse_subs(fp):
 
 	# Ask user to resolve ambiguities
 	if ambiguous_entries:
+		if not interactive:
+			raise Exception('Please resolve duplicate lines')
+
 		for id, info in ambiguous_entries.iteritems():
 			entry = sub_entries[id]
 
@@ -382,7 +386,7 @@ def main(args=None, input_fp=None, output_fp=None):
 		else:
 
 			with codecs.open(args.input_file, mode='rb', encoding='utf-8') if input_fp is None else input_fp as fp:
-				data = parse_subs(fp)
+				data = parse_subs(fp, not args.no_resolve)
 				fp.close()
 
 		if not args.dry_run:
